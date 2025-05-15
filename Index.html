@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quran Recitations</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      color: #333;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #0077cc;
+    }
+
+    select, input {
+      padding: 10px;
+      font-size: 1em;
+      margin: 10px 0;
+      width: 100%;
+      max-width: 400px;
+      display: block;
+    }
+
+    .surah {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+
+    audio {
+      display: block;
+      margin-top: 10px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>Quran Audio Recitations</h1>
+
+  <label for="reciterSelect">Choose Reciter:</label>
+  <select id="reciterSelect">
+    <option value="9">Mohamed Siddiq al-Minshawi</option>
+    <option value="6">Mahmoud Khalil Al-Husary</option>
+    <option value="1">AbdulBaset AbdulSamad</option>
+  </select>
+
+  <input type="text" id="searchInput" placeholder="Search by Surah number or name..." />
+
+  <div id="audioList">Loading audio...</div>
+
+  <script>
+    const reciterSelect = document.getElementById('reciterSelect');
+    const searchInput = document.getElementById('searchInput');
+    const audioList = document.getElementById('audioList');
+    let allSurahs = [];
+    let surahData = [];
+
+    async function fetchChapters() {
+      const res = await fetch('https://api.quran.com/api/v4/chapters');
+      const data = await res.json();
+      allSurahs = data.chapters.map(ch => ({ id: ch.id, name: ch.name_simple }));
+    }
+
+    async function fetchAudio(reciterId) {
+      audioList.innerHTML = 'Loading...';
+      surahData = [];
+
+      for (const surah of allSurahs) {
+        try {
+          const res = await fetch(`https://api.quran.com/api/v4/chapter_recitations/${reciterId}/${surah.id}`);
+          if (!res.ok) throw new Error('Fetch failed');
+          const data = await res.json();
+          const audioUrl = data.audio_file?.audio_url;
+
+          const surahDiv = document.createElement('div');
+          surahDiv.className = 'surah';
+          surahDiv.setAttribute('data-surah', `${surah.id} ${surah.name.toLowerCase()}`);
+
+          if (audioUrl) {
+            surahDiv.innerHTML = `<strong>Surah ${surah.id}: ${surah.name}</strong>`;
+            const audio = document.createElement('audio');
+            audio.src = audioUrl;
+            audio.controls = true;
+            surahDiv.appendChild(audio);
+          } else {
+            surahDiv.innerHTML = `<strong>Surah ${surah.id}: ${surah.name}</strong> - No audio available.`;
+          }
+
+          surahData.push({ id: surah.id, name: surah.name, element: surahDiv });
+          audioList.appendChild(surahDiv);
+        } catch (err) {
+          console.error(`Error loading Surah ${surah.id}:`, err);
+        }
+      }
+    }
+
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.trim().toLowerCase();
+      surahData.forEach(({ id, name, element }) => {
+        const match = id.toString().includes(query) || name.toLowerCase().includes(query);
+        element.style.display = match ? '' : 'none';
+      });
+    });
+
+    reciterSelect.addEventListener('change', async () => {
+      audioList.innerHTML = '';
+      await fetchAudio(reciterSelect.value);
+    });
+
+    async function initialize() {
+      await fetchChapters();
+      await fetchAudio(reciterSelect.value);
+    }
+
+    initialize();
+  </script>
+</body>
+</html>
